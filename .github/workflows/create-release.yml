@@ -55,6 +55,7 @@ jobs:
           cat shasumver >> $GITHUB_STEP_SUMMARY
 
       - name: Checkout homebrew-cask repository
+        if: ${{ secrets.TOKEN_HOMEBREW_CASK != '' }}
         uses: actions/checkout@v4
         with:
           repository: romankurnovskii/homebrew-cask
@@ -64,6 +65,7 @@ jobs:
           # https://github.com/romankurnovskii/BrewMate/settings/secrets/actions
 
       - name: Update Cask | Create Pull Request
+        if: ${{ secrets.TOKEN_HOMEBREW_CASK != '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TOKEN_HOMEBREW_CASK: ${{ secrets.TOKEN_HOMEBREW_CASK }}
