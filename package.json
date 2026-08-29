@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc && npm run build:renderer && npm run copy:static",
-    "build:renderer": "tsc src/renderer/renderer.ts --outDir dist/src/renderer --target ES2020 --module none --lib ES2020,DOM --skipLibCheck --ignoreConfig --ignoreDeprecations 6.0 --types node",
+    "build:renderer": "tsc src/renderer/renderer.ts --outDir dist/src/renderer --target ES2020 --module none --lib ES2020,DOM --skipLibCheck --ignoreDeprecations 6.0 --types node",
     "copy:static": "mkdir -p dist/src/renderer && mkdir -p dist/assets && cp src/renderer/index.html dist/src/renderer/ && cp src/renderer/styles.css dist/src/renderer/ && if [ -d src/assets ]; then cp -r src/assets/* dist/assets/; elif [ -d assets ]; then cp -r assets/* dist/assets/; fi",
     "start": "electron .",
     "start:dev": "NODE_ENV=development npm start",
