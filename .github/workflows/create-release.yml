@@ -12,6 +12,8 @@ on:
 jobs:
   create-release:
     runs-on: macos-latest
+    env:
+      TOKEN_HOMEBREW_CASK: ${{ secrets.TOKEN_HOMEBREW_CASK }}
     steps:
       - uses: actions/checkout@v4
 
@@ -55,7 +57,7 @@ jobs:
           cat shasumver >> $GITHUB_STEP_SUMMARY
 
       - name: Checkout homebrew-cask repository
-        if: ${{ secrets.TOKEN_HOMEBREW_CASK != '' }}
+        if: env.TOKEN_HOMEBREW_CASK != ''
         uses: actions/checkout@v4
         with:
           repository: romankurnovskii/homebrew-cask
@@ -65,7 +67,7 @@ jobs:
           # https://github.com/romankurnovskii/BrewMate/settings/secrets/actions
 
       - name: Update Cask | Create Pull Request
-        if: ${{ secrets.TOKEN_HOMEBREW_CASK != '' }}
+        if: env.TOKEN_HOMEBREW_CASK != ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TOKEN_HOMEBREW_CASK: ${{ secrets.TOKEN_HOMEBREW_CASK }}
@@ -101,11 +103,11 @@ jobs:
           --url $PR_URL \
           --header "authorization: token ${TOKEN_HOMEBREW_CASK}" \
           --header 'content-type: application/json' \
-          --data @- << EOF
+          --data @- << EOO
           {
             "title": "Update BrewMate to ${VERSION}",
             "body": " **${GITHUB_WORKFLOW}**. \n\n commit: _${GITHUB_SHA}_.",
             "head": "${BRANCH_NAME}", 
             "base": "main"
           }
-          EOF
+          EOO
