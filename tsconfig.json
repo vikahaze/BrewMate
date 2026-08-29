@@ -9,8 +9,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "lib": ["ES2020", "DOM"]
+    "lib": ["ES2020", "DOM"],
+    "types": ["jest", "node"]
   },
   "include": ["index.ts", "src/**/*"],
-  "exclude": ["node_modules", "dist", "template", "src/renderer/renderer.ts"]
+  "exclude": ["node_modules", "dist", "template", "src/renderer/renderer.ts", "src/**/__tests__/**"]
 }
