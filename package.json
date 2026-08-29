@@ -1,6 +1,6 @@
 {
   "name": "BrewMate",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "BrewMate - Homebrew App GUI Manager for macOS",
   "author": "Roman Kurnovskii",
   "main": "dist/index.js",
