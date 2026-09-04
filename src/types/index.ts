@@ -4,11 +4,21 @@ export interface App {
   homepage: string;
   version: string;
   type: 'cask' | 'formula';
+  _category?: string;
+  _nameLower?: string;
+  _searchStr?: string;
 }
 
 export interface InstalledApp {
   name: string;
   type: 'cask' | 'formula';
+}
+
+export interface OutdatedApp {
+  name: string;
+  type: 'cask' | 'formula';
+  installedVersion: string;
+  latestVersion: string;
 }
 
 export interface TerminalPromptInfo {
@@ -27,3 +37,18 @@ export interface InstallResult {
   appName: string;
   success: boolean;
 }
+
+export interface BrewService {
+  name: string;
+  status: 'started' | 'stopped' | 'error' | 'unknown' | 'none';
+  user: string | null;
+  plist: string | null;
+  file?: string;
+}
+
+export type {
+  Software,
+  SoftwareQuery,
+  SoftwareUpdatePayload,
+  SoftwareEvent,
+} from './software';

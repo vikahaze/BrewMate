@@ -6,6 +6,7 @@ out/
 
 # Build artifacts
 build/icon.iconset/
+ipcHandlers.js
 
 # Test coverage
 coverage/
@@ -32,5 +33,10 @@ yarn-error.log*
 .env.prod
 .credentials/
 
-build/
+.agents/
+.continue/
+.vscode/
 docs/
+.dev/
+AGENTS.md
+.memory-bank/

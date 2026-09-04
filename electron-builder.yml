@@ -8,24 +8,40 @@ copyright: © 2025 Roman Kurnovskii
 
 asar: true
 
-files:
-  - "dist/**/*"
-  - "package.json"
-  - "!**/node_modules/**/*"
-  - "!**/src/**/*"
-  - "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}"
-  - "!.editorconfig"
-  - "!**/._*"
-  - "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}"
-  - "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}"
-  - "!**/{appveyor.yml,.travis.yml,circle.yml}"
-  - "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
+# node-pty ships a native addon that must live outside the asar
+asarUnpack:
+  - '**/node_modules/node-pty/**'
 
-extraFiles:
+files:
+  - 'dist/**/*'
+  - 'locales/**/*'
+  - 'node_modules/**/*'
+  - 'package.json'
+  - '!**/src/**/*'
+  - '!**/node_modules/node-pty/prebuilds/**'
+  - '!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}'
+  - '!.editorconfig'
+  - '!**/._*'
+  - '!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}'
+  - '!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}'
+  - '!**/{appveyor.yml,.travis.yml,circle.yml}'
+  - '!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}'
+
+extraMetadata:
+  main: dist/index.js
+
+extraResources:
   - from: dist/assets
     to: assets
     filter:
-      - "**/*"
+      - '**/*'
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Development
+  icon: build/icon.icns
 
 mac:
   category: public.app-category.utilities
@@ -35,16 +51,18 @@ mac:
         - arm64
         - x64
     - target: zip
-      arch: universal
+      arch:
+        - arm64
+        - x64
   icon: build/icon.icns
   type: distribution
   hardenedRuntime: true
   gatekeeperAssess: false
-  minimumSystemVersion: "12.0"
+  minimumSystemVersion: '12.0'
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.inherit.plist
   artifactName: ${productName}-${version}-${arch}.${ext}
-  darkModeSupport: true
+  darkModeSupport: false
 
 # Mac App Store Distribution Build
 mas:
@@ -54,6 +72,3 @@ mas:
   hardenedRuntime: false
   type: distribution
   artifactName: ${productName}-${version}-${arch}.pkg
-  identity: "Roman Kurnovskii (ZJBVSAC8G7)"
-  # Default to universal binary (recommended for App Store)
-  # Can override with --arm64 or --x64 flags

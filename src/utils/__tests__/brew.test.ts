@@ -1,4 +1,4 @@
-import { getInstalledApps } from '../brew';
+import { getInstalledApps, getOutdatedApps, getCacheSize, getAllTapCaskNames, getThirdPartyCaskInfo } from '../brew';
 import { getEnvWithBrewPath } from '../path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -9,6 +9,14 @@ jest.mock('child_process', () => ({
 }));
 
 jest.mock('../path');
+
+// Mock fs module
+jest.mock('fs', () => ({
+  promises: {
+    readdir: jest.fn().mockResolvedValue([]),
+    stat: jest.fn().mockResolvedValue({ size: 0, isDirectory: () => false, isFile: () => true }),
+  },
+}));
 
 // Mock util.promisify to return our mock function
 // Use a global variable to avoid hoisting issues
@@ -44,7 +52,7 @@ describe('brew utilities', () => {
   });
 
   describe('getInstalledApps', () => {
-    it('should return installed casks and formulas', async () => {
+    it('should return installed casks and formulas (newline-separated)', async () => {
       mockExecAsync
         .mockResolvedValueOnce({
           stdout: 'cask1\ncask2\ncask3',
@@ -65,16 +73,57 @@ describe('brew utilities', () => {
           { name: 'cask3', type: 'cask' },
           { name: 'formula1', type: 'formula' },
           { name: 'formula2', type: 'formula' },
-        ]),
+        ])
       );
+    });
 
-      expect(mockExecAsync).toHaveBeenCalledWith(
-        'brew list --casks',
-        expect.objectContaining({ env: expect.any(Object) }),
+    it('should return installed casks and formulas (space-separated)', async () => {
+      mockExecAsync
+        .mockResolvedValueOnce({
+          stdout: 'cask1 cask2 cask3',
+          stderr: '',
+        })
+        .mockResolvedValueOnce({
+          stdout: 'formula1 formula2',
+          stderr: '',
+        });
+
+      const result = await getInstalledApps();
+
+      expect(result).toHaveLength(5);
+      expect(result).toEqual(
+        expect.arrayContaining([
+          { name: 'cask1', type: 'cask' },
+          { name: 'cask2', type: 'cask' },
+          { name: 'cask3', type: 'cask' },
+          { name: 'formula1', type: 'formula' },
+          { name: 'formula2', type: 'formula' },
+        ])
       );
-      expect(mockExecAsync).toHaveBeenCalledWith(
-        'brew list --formula',
-        expect.objectContaining({ env: expect.any(Object) }),
+    });
+
+    it('should return installed casks and formulas (mixed whitespace)', async () => {
+      mockExecAsync
+        .mockResolvedValueOnce({
+          stdout: 'cask1  cask2\tcask3',
+          stderr: '',
+        })
+        .mockResolvedValueOnce({
+          stdout: 'formula1\tformula2',
+          stderr: '',
+        });
+
+      const result = await getInstalledApps();
+
+      expect(result).toHaveLength(5);
+      expect(result).toEqual(
+        expect.arrayContaining([
+          { name: 'cask1', type: 'cask' },
+          { name: 'cask2', type: 'cask' },
+          { name: 'cask3', type: 'cask' },
+          { name: 'formula1', type: 'formula' },
+          { name: 'formula2', type: 'formula' },
+        ])
       );
     });
 
@@ -93,7 +142,7 @@ describe('brew utilities', () => {
       expect(mockGetEnvWithBrewPath).toHaveBeenCalled();
       expect(mockExecAsync).toHaveBeenCalledWith(
         expect.any(String),
-        expect.objectContaining({ env: mockEnv }),
+        expect.objectContaining({ env: mockEnv })
       );
     });
 
@@ -126,19 +175,21 @@ describe('brew utilities', () => {
           { name: 'cask1', type: 'cask' },
           { name: 'cask2', type: 'cask' },
           { name: 'formula1', type: 'formula' },
-        ]),
+        ])
       );
     });
 
-    it('should return empty array on error', async () => {
-      mockExecAsync.mockRejectedValueOnce(new Error('brew command failed'));
+    it('should return empty array when both cask and formula lists fail', async () => {
+      mockExecAsync
+        .mockRejectedValueOnce(new Error('cask list failed'))
+        .mockRejectedValueOnce(new Error('formula list failed'));
 
       const result = await getInstalledApps();
 
       expect(result).toEqual([]);
     });
 
-    it('should handle errors from brew list --formula', async () => {
+    it('should still return casks when brew list --formula fails', async () => {
       mockExecAsync
         .mockResolvedValueOnce({
           stdout: 'cask1',
@@ -148,20 +199,23 @@ describe('brew utilities', () => {
 
       const result = await getInstalledApps();
 
-      expect(result).toEqual([]);
+      expect(result).toEqual([{ name: 'cask1', type: 'cask' }]);
     });
 
-    it('should handle errors from brew list --casks', async () => {
+    it('should still return formulas when brew list --casks fails', async () => {
       mockExecAsync
         .mockRejectedValueOnce(new Error('cask list failed'))
         .mockResolvedValueOnce({
-          stdout: 'formula1',
+          stdout: 'formula1 formula2',
           stderr: '',
         });
 
       const result = await getInstalledApps();
 
-      expect(result).toEqual([]);
+      expect(result).toEqual([
+        { name: 'formula1', type: 'formula' },
+        { name: 'formula2', type: 'formula' },
+      ]);
     });
 
     it('should preserve app names exactly as returned by brew', async () => {
@@ -179,8 +233,255 @@ describe('brew utilities', () => {
           { name: 'app-with-dashes', type: 'cask' },
           { name: 'app_with_underscores', type: 'cask' },
           { name: 'app.with.dots', type: 'cask' },
-        ]),
+        ])
       );
+    });
+  });
+
+  describe('getCacheSize', () => {
+    it('should calculate cache directory size recursively', async () => {
+      const fs = require('fs');
+      fs.promises.readdir
+        .mockResolvedValueOnce([
+          { name: 'file1.txt', isDirectory: () => false, isFile: () => true },
+          { name: 'subdir', isDirectory: () => true, isFile: () => false },
+        ])
+        .mockResolvedValueOnce([
+          { name: 'file2.txt', isDirectory: () => false, isFile: () => true },
+        ]);
+      fs.promises.stat.mockResolvedValue({ size: 1024 });
+
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: '/Users/r/Library/Caches/Homebrew',
+        stderr: '',
+      });
+
+      const result = await getCacheSize();
+      expect(result).toBe(2048); // 1024 * 2 files
+    });
+
+    it('should return 0 on error', async () => {
+      mockExecAsync.mockRejectedValueOnce(new Error('brew failed'));
+      const result = await getCacheSize();
+      expect(result).toBe(0);
+    });
+  });
+
+  describe('getOutdatedApps', () => {
+    it('should parse outdated cask and formulas correctly', async () => {
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          formulae: [
+            {
+              name: 'sqlite',
+              installed_versions: ['3.43.0'],
+              current_version: '3.44.0',
+            },
+          ],
+          casks: [
+            {
+              name: 'google-chrome',
+              installed_versions: ['119.0.6045.159'],
+              current_version: '120.0.6099.71',
+            },
+          ],
+        }),
+        stderr: '',
+      });
+
+      const result = await getOutdatedApps();
+      expect(result).toHaveLength(2);
+      expect(result).toEqual([
+        {
+          name: 'sqlite',
+          type: 'formula',
+          installedVersion: '3.43.0',
+          latestVersion: '3.44.0',
+        },
+        {
+          name: 'google-chrome',
+          type: 'cask',
+          installedVersion: '119.0.6045.159',
+          latestVersion: '120.0.6099.71',
+        },
+      ]);
+    });
+
+    it('should return empty array on error', async () => {
+      mockExecAsync.mockRejectedValueOnce(new Error('brew failed'));
+      const result = await getOutdatedApps();
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('getAllTapCaskNames', () => {
+    it('should return all cask names from all taps', async () => {
+      // First call: `brew tap` lists installed taps.
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: 'romankurnovskii/awesome-brew\noven-sh/bun',
+        stderr: '',
+      });
+      // Then one `brew search --casks <tap>` per tap. Formula-only taps reject.
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: 'firefox\ngoogle-chrome\nromankurnovskii/awesome-brew/etemaro',
+        stderr: '',
+      });
+      mockExecAsync.mockRejectedValueOnce(new Error('Error: No formulae or casks found'));
+
+      const result = await getAllTapCaskNames();
+
+      expect(result).toEqual([
+        'firefox',
+        'google-chrome',
+        'romankurnovskii/awesome-brew/etemaro',
+      ]);
+      expect(mockExecAsync).toHaveBeenNthCalledWith(1, 'brew tap', expect.anything());
+      expect(mockExecAsync).toHaveBeenNthCalledWith(
+        2,
+        'brew search --casks romankurnovskii/awesome-brew',
+        expect.anything()
+      );
+      expect(mockExecAsync).toHaveBeenNthCalledWith(
+        3,
+        'brew search --casks oven-sh/bun',
+        expect.anything()
+      );
+    });
+
+    it('should strip section headers from output', async () => {
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: 'romankurnovskii/awesome-brew',
+        stderr: '',
+      });
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: '==> Casks\nfirefox\nromankurnovskii/awesome-brew/orca\n==> Formulae\nsome-formula',
+        stderr: '',
+      });
+
+      const result = await getAllTapCaskNames();
+      expect(result).toEqual([
+        'firefox',
+        'romankurnovskii/awesome-brew/orca',
+      ]);
+    });
+
+    it('should skip brew warning/error/note lines', async () => {
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: 'romankurnovskii/awesome-brew',
+        stderr: '',
+      });
+      mockExecAsync.mockResolvedValueOnce({
+        stdout:
+          'Warning: some upgrade notice\nfirefox\nError: something failed\nromankurnovskii/awesome-brew/etemaro\nNote: run brew update',
+        stderr: '',
+      });
+
+      const result = await getAllTapCaskNames();
+      expect(result).toEqual([
+        'firefox',
+        'romankurnovskii/awesome-brew/etemaro',
+      ]);
+    });
+
+    it('should skip formula-only taps that error out', async () => {
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: 'romankurnovskii/awesome-brew\noven-sh/bun',
+        stderr: '',
+      });
+      mockExecAsync.mockResolvedValueOnce({
+        stdout:
+          'romankurnovskii/awesome-brew/brewmate\nromankurnovskii/awesome-brew/etemaro',
+        stderr: '',
+      });
+      mockExecAsync.mockRejectedValueOnce(new Error('Error: No formulae or casks found'));
+
+      const result = await getAllTapCaskNames();
+      expect(result).toEqual([
+        'romankurnovskii/awesome-brew/brewmate',
+        'romankurnovskii/awesome-brew/etemaro',
+      ]);
+    });
+
+    it('should dedupe cask names reported by multiple taps', async () => {
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: 'a/tap\nb/tap',
+        stderr: '',
+      });
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: 'shared-cask\na/tap/foo',
+        stderr: '',
+      });
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: 'shared-cask\nb/tap/bar',
+        stderr: '',
+      });
+
+      const result = await getAllTapCaskNames();
+      expect(result).toEqual(['shared-cask', 'a/tap/foo', 'b/tap/bar']);
+    });
+
+    it('should return empty array when no taps are installed', async () => {
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: '',
+        stderr: '',
+      });
+
+      const result = await getAllTapCaskNames();
+      expect(result).toEqual([]);
+    });
+
+    it('should return empty array on error', async () => {
+      mockExecAsync.mockRejectedValueOnce(new Error('brew search failed'));
+      const result = await getAllTapCaskNames();
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('getThirdPartyCaskInfo', () => {
+    it('should return cask info for a tap-qualified cask name', async () => {
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          casks: [
+            {
+              token: 'etemaro',
+              name: ['EteMaro'],
+              desc: 'A cask from a third-party tap',
+              homepage: 'https://example.com',
+              version: '1.2.3',
+            },
+          ],
+        }),
+        stderr: '',
+      });
+
+      const result = await getThirdPartyCaskInfo('romankurnovskii/awesome-brew/etemaro');
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          token: 'etemaro',
+          desc: 'A cask from a third-party tap',
+        })
+      );
+      expect(mockExecAsync).toHaveBeenCalledWith(
+        'brew info --cask --json=v2 romankurnovskii/awesome-brew/etemaro',
+        expect.anything()
+      );
+    });
+
+    it('should return null when no casks in response', async () => {
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: JSON.stringify({ casks: [] }),
+        stderr: '',
+      });
+
+      const result = await getThirdPartyCaskInfo('unknown-cask');
+      expect(result).toBeNull();
+    });
+
+    it('should return null on error', async () => {
+      mockExecAsync.mockRejectedValueOnce(new Error('brew info failed'));
+      const result = await getThirdPartyCaskInfo('unknown-cask');
+      expect(result).toBeNull();
     });
   });
 });

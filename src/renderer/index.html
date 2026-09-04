@@ -4,138 +4,461 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BrewMate</title>
-    <meta
-      name="description"
-      content="BrewMate - Homebrew App Manager for macOS"
-    />
+    <meta name="description" content="BrewMate - A modern package manager GUI for macOS" />
     <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
-    <link
-      rel="icon"
-      type="image/png"
-      sizes="16x16"
-      href="../assets/favicon-16x16.png"
-    />
-    <link
-      rel="icon"
-      type="image/png"
-      sizes="32x32"
-      href="../assets/favicon-32x32.png"
-    />
-    <link
-      rel="apple-touch-icon"
-      sizes="180x180"
-      href="../assets/apple-touch-icon.png"
-    />
+    <link rel="icon" type="image/png" sizes="16x16" href="../assets/favicon-16x16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32x32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="../assets/apple-touch-icon.png" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <!-- Search & Filter Bar -->
-    <div class="search-bar">
-      <div class="search-bar-top">
-        <div class="app-title">
+    <div class="app-layout">
+      <!-- Left Navigation Sidebar -->
+      <div class="nav-sidebar">
+        <div class="sidebar-brand">
+          <svg class="brand-logo" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+            <path d="M2 17l10 5 10-5"></path>
+            <path d="M2 12l10 5 10-5"></path>
+          </svg>
           <span>BrewMate</span>
         </div>
-        <div class="search-container">
-          <svg
-            class="search-icon"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            ></path>
-          </svg>
-          <input
-            type="text"
-            id="searchInput"
-            placeholder="Search Casks or Formulas..."
-            autocomplete="off"
-          />
+        <div class="nav-items">
+          <button class="nav-button active" data-view="dashboard">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <rect x="3" y="3" width="7" height="9"></rect>
+              <rect x="14" y="3" width="7" height="5"></rect>
+              <rect x="14" y="12" width="7" height="9"></rect>
+              <rect x="3" y="16" width="7" height="5"></rect>
+            </svg>
+            <span data-i18n="nav.dashboard">Dashboard</span>
+          </button>
+          <button class="nav-button" data-view="explore">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <span data-i18n="nav.explore">Explore</span>
+          </button>
+          <button class="nav-button" data-view="updates">
+            <div style="position: relative; display: flex; align-items: center; gap: 12px; width: 100%;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+              </svg>
+              <span data-i18n="nav.updates">Updates</span>
+              <span class="nav-badge" id="updatesBadge" style="display: none;">0</span>
+            </div>
+          </button>
+          <button class="nav-button" data-view="services">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+              <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+              <line x1="6" y1="6" x2="6.01" y2="6"></line>
+              <line x1="6" y1="18" x2="6.01" y2="18"></line>
+            </svg>
+            <span data-i18n="nav.services">Services</span>
+          </button>
+        </div>
+        <div class="sidebar-footer" style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
+          <label for="languageSelect" style="font-size: 11px; color: rgba(255, 255, 255, 0.4); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;" data-i18n="sidebar.language">Language</label>
+          <select id="languageSelect" style="background: rgba(25, 18, 43, 0.6); color: #fff; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px; padding: 8px 12px; font-size: 13px; cursor: pointer; outline: none; transition: border-color 0.2s; width: 100%;">
+            <option value="en">English</option>
+            <option value="es">Español</option>
+            <option value="ru">Русский</option>
+            <option value="uk">Українська</option>
+            <option value="hi">हिन्दी</option>
+          </select>
         </div>
       </div>
-      <div class="category-chips" id="categoryChips"></div>
+
+      <!-- Main Layout Content Wrapper -->
+      <div class="main-layout-wrapper">
+        <!-- Dashboard View -->
+        <div class="tab-view active" id="dashboardView">
+          <div class="view-header">
+            <h1 data-i18n="dashboard.title">Dashboard</h1>
+            <p class="view-subtitle" data-i18n="dashboard.subtitle">Overview of your macOS system package state</p>
+          </div>
+          
+          <div class="dashboard-grid">
+            <!-- Summary card -->
+            <div class="dashboard-card summary-card">
+              <div class="card-header">
+                <h3 data-i18n="dashboard.installed_apps">Installed Apps</h3>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+              </div>
+              <div class="card-large-number" id="dashInstalledCount">0</div>
+              <div class="installed-breakdown">
+                <div class="breakdown-item">
+                  <span class="dot cask"></span>
+                  <span class="label" data-i18n="dashboard.casks">Casks:</span>
+                  <span class="value" id="dashCaskCount">0</span>
+                </div>
+                <div class="breakdown-item">
+                  <span class="dot formula"></span>
+                  <span class="label" data-i18n="dashboard.formulas">Formulas:</span>
+                  <span class="value" id="dashFormulaCount">0</span>
+                </div>
+              </div>
+              <div class="breakdown-progress">
+                <div class="progress-bar" id="dashBreakdownProgress" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <!-- Categories Donut Chart card -->
+            <div class="dashboard-card categories-card">
+              <div class="card-header">
+                <h3 data-i18n="dashboard.top_categories">Top Categories</h3>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
+                  <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
+                </svg>
+              </div>
+              <div class="donut-chart-container">
+                <div class="donut-chart-graphic" id="dashDonutChart">
+                  <div class="empty-chart" data-i18n="common.loading">Loading...</div>
+                </div>
+                <div class="donut-chart-legend" id="dashDonutLegend">
+                </div>
+              </div>
+            </div>
+
+            <!-- Storage card -->
+            <div class="dashboard-card storage-card">
+              <div class="card-header">
+                <h3 data-i18n="dashboard.cache_title">Homebrew Cache</h3>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                </svg>
+              </div>
+              <div class="card-large-number" id="dashCacheSize">0.0 MB</div>
+              <p class="card-meta" data-i18n="dashboard.cache_subtitle">Storage taken by downloaded installers and logs.</p>
+              <button class="dashboard-action-btn" id="dashCleanupBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                <span data-i18n="dashboard.run_cleanup">Run Cleanup</span>
+              </button>
+            </div>
+
+            <!-- Updates card -->
+            <div class="dashboard-card updates-card">
+              <div class="card-header">
+                <h3 data-i18n="dashboard.updates_available">Updates Available</h3>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                </svg>
+              </div>
+              <div class="card-large-number" id="dashUpdatesCount">0</div>
+              <p class="card-meta" id="dashUpdatesMeta" data-i18n="dashboard.up_to_date">All your applications are up to date.</p>
+              <div class="card-actions" id="dashUpdatesActions" style="display: none; gap: 12px; margin-top: auto;">
+                <button class="dashboard-action-btn primary" id="dashViewUpdatesBtn" data-i18n="dashboard.view_updates">View Updates</button>
+                <button class="dashboard-action-btn" id="dashUpgradeAllBtn" data-i18n="dashboard.upgrade_all">Upgrade All</button>
+              </div>
+              <div style="margin-top: 12px;">
+                <button class="dashboard-action-btn" id="dashScanVulnBtn">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                  </svg>
+                  <span data-i18n="dashboard.scan_vuln">Scan Vulnerabilities</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Explore View -->
+        <div class="tab-view" id="exploreView">
+          <!-- Search & Filter Bar -->
+          <div class="search-bar">
+            <div class="search-bar-top">
+              <div class="search-container" style="margin-left: 0;">
+                <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  ></path>
+                </svg>
+                <input
+                  type="text"
+                  id="searchInput"
+                  placeholder="Search Casks or Formulas..."
+                  data-i18n="explore.search_placeholder"
+                  autocomplete="off"
+                />
+              </div>
+            </div>
+            <div class="category-chips" id="categoryChips"></div>
+          </div>
+
+          <!-- Main Content -->
+          <div class="main-content">
+            <div class="apps-grid" id="appsGrid">
+              <div class="loading">
+                <div class="loading-spinner"></div>
+                <div class="loading-message" id="loadingMessage" data-i18n="explore.loading">Loading apps...</div>
+              </div>
+            </div>
+
+            <div class="brew-commands">
+              <div class="type-filter" id="typeFilter">
+                <div class="type-filter-label" data-i18n="explore.filter_type">Filter by Type</div>
+                <button class="type-toggle active" data-type="All" data-i18n="explore.all_types">All Types</button>
+                <button class="type-toggle" data-type="cask" data-i18n="explore.casks">Casks</button>
+                <button class="type-toggle" data-type="formula" data-i18n="explore.formulas">Formulas</button>
+                <button class="type-toggle" data-type="trending" id="trendingToggleBtn" data-i18n="explore.trending">Trending 🔥</button>
+              </div>
+              <h3 data-i18n="explore.brew_commands">Brew Commands</h3>
+              <button class="brew-command-button" data-command="brew update">
+                <span class="prompt">$</span> brew update
+              </button>
+              <button class="brew-command-button" data-command="brew upgrade">
+                <span class="prompt">$</span> brew upgrade
+              </button>
+              <button class="brew-command-button" data-command="brew list">
+                <span class="prompt">$</span> brew list
+              </button>
+              <button class="brew-command-button" data-command="brew doctor">
+                <span class="prompt">$</span> brew doctor
+              </button>
+              <button class="brew-command-button" data-command="brew cleanup --prune=all">
+                <span class="prompt">$</span> brew cleanup --prune=all
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Updates View -->
+        <div class="tab-view" id="updatesView">
+          <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <div>
+              <h1 data-i18n="updates.title">Available Updates</h1>
+              <p class="view-subtitle" data-i18n="updates.subtitle">Select applications to upgrade</p>
+            </div>
+            <div class="updates-upgrade-actions" id="updatesUpgradeActions" style="display: none;">
+              <button class="dashboard-action-btn" id="updatesUpgradeFormulasBtn" style="padding: 12px 24px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M10 2v7.31"></path>
+                  <path d="M14 9.3V2"></path>
+                  <path d="M8.5 2h7"></path>
+                  <path d="M14 9.3a6.5 6.5 0 1 1-4 0"></path>
+                  <path d="M5.52 16h12.96"></path>
+                </svg>
+                <span data-i18n="updates.upgrade_formulas">Upgrade Formulas</span>
+              </button>
+              <button class="dashboard-action-btn" id="updatesUpgradeCasksBtn" style="padding: 12px 24px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"></path>
+                  <path d="M3 8l9 5 9-5"></path>
+                  <path d="M12 13v8"></path>
+                </svg>
+                <span data-i18n="updates.upgrade_casks">Upgrade Casks</span>
+              </button>
+              <button class="dashboard-action-btn" id="updatesUpgradeSelectedBtn" style="padding: 12px 24px;" disabled>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <polyline points="9 11 12 14 22 4"></polyline>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
+                <span data-i18n="updates.upgrade_selected">Upgrade Selected</span>
+              </button>
+              <button class="dashboard-action-btn primary" id="updatesUpgradeAllBtn" style="padding: 12px 24px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+                </svg>
+                <span data-i18n="updates.upgrade_all">Upgrade All Packages</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="updates-container">
+            <div class="updates-empty-state" id="updatesEmptyState">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+              <h3 data-i18n="updates.all_up_to_date">All Packages Up to Date</h3>
+              <p data-i18n="updates.up_to_date_msg">Everything is running on the latest versions.</p>
+            </div>
+            
+            <table class="updates-table" id="updatesTable" style="display: none;">
+              <thead>
+                <tr>
+                  <th class="updates-check-col">
+                    <span class="select-all-label" data-i18n="updates.table.select">Select</span>
+                    <input type="checkbox" id="updatesSelectAllCb" aria-label="Select all packages">
+                  </th>
+                  <th data-i18n="updates.table.app">Application</th>
+                  <th data-i18n="updates.table.type">Type</th>
+                  <th data-i18n="updates.table.installed">Installed</th>
+                  <th data-i18n="updates.table.latest">Latest</th>
+                  <th style="text-align: right;" data-i18n="updates.table.action">Action</th>
+                </tr>
+              </thead>
+              <tbody id="updatesTableBody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Services View -->
+        <div class="tab-view" id="servicesView">
+          <div class="view-header">
+            <h1 data-i18n="services.title">Services</h1>
+            <p class="view-subtitle" data-i18n="services.subtitle">Manage background services (launchd / systemd)</p>
+          </div>
+          
+          <div class="services-container">
+            <div class="services-loading" id="servicesLoading" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px;">
+              <div class="loading-spinner"></div>
+              <p style="margin-top: 16px; color: var(--text-color); opacity: 0.7;" data-i18n="services.loading">Loading services...</p>
+            </div>
+            
+            <div class="services-empty-state" id="servicesEmptyState" style="display: none;">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                <line x1="6" y1="18" x2="6.01" y2="18"></line>
+              </svg>
+              <h3 data-i18n="services.no_services">No Services Found</h3>
+              <p data-i18n="services.no_services_msg">You don't have any Homebrew services installed.</p>
+            </div>
+
+            <table class="services-table" id="servicesTable" style="display: none;">
+              <thead>
+                <tr>
+                  <th data-i18n="services.table.service">Service</th>
+                  <th data-i18n="services.table.status">Status</th>
+                  <th data-i18n="services.table.user">User</th>
+                  <th style="text-align: right;" data-i18n="services.table.actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="servicesTableBody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+          <p>
+            <span data-i18n="footer.terminal_hint">Press Cmd+J to toggle terminal.</span>
+            <span id="appCount">0</span> <span data-i18n="footer.apps_shown">apps shown.</span>
+            <span id="logPath" style="margin-left: 16px; font-size: 11px; opacity: 0.6"></span>
+            <span id="versionInfo" style="margin-left: 16px; font-size: 11px; opacity: 0.6"></span>
+          </p>
+        </div>
+      </div>
     </div>
 
-    <!-- Main Content -->
-    <div class="main-content">
-      <div class="apps-grid" id="appsGrid">
-        <div class="loading">
-          <div class="loading-spinner"></div>
-          <div class="loading-message" id="loadingMessage">Loading apps...</div>
+    <!-- App Detail Sidebar -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <div class="app-sidebar" id="appSidebar">
+      <div class="sidebar-header">
+        <h2 class="sidebar-title" id="sidebarTitle">App Name</h2>
+        <button class="sidebar-close" id="sidebarClose">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="sidebar-content">
+        <div class="sidebar-meta">
+          <span class="sidebar-version" id="sidebarVersion">v1.0.0</span>
+          <span class="sidebar-type" id="sidebarType">cask</span>
+        </div>
+        <p class="sidebar-description" id="sidebarDescription">Description goes here</p>
+        <a href="#" target="_blank" class="sidebar-link" id="sidebarHomepage">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+          <span data-i18n="sidebar.open_homepage">Open Homepage</span>
+        </a>
+        <div class="sidebar-details-loader" id="sidebarDetailsLoader" style="display: none; margin-top: 16px; align-items: center; gap: 8px; opacity: 0.7;">
+          <div class="loading-spinner" style="width: 16px; height: 16px;"></div> <span data-i18n="sidebar.loading_details">Loading details...</span>
+        </div>
+        <div class="sidebar-extended-details" id="sidebarExtendedDetails" style="display: none; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+          <div class="detail-row" style="margin-bottom: 8px;">
+            <strong style="opacity: 0.7;" data-i18n="sidebar.size">Size:</strong> <span id="sidebarSize" style="float: right;">Unknown</span>
+          </div>
+          <div class="detail-row" style="margin-bottom: 8px;">
+            <strong style="opacity: 0.7;" data-i18n="sidebar.dependencies">Dependencies:</strong>
+            <div id="sidebarDependencies" style="margin-top: 4px; font-size: 12px; color: var(--text-color);">None</div>
+          </div>
+          <div class="detail-row" id="sidebarGithubStatsRow" style="display: none; margin-bottom: 8px;">
+            <strong style="opacity: 0.7;" data-i18n="sidebar.github_stars">GitHub Stars:</strong> <span id="sidebarGithubStars" style="float: right;">0</span>
+          </div>
+          <div class="detail-row" id="sidebarVulnRow" style="display: none; margin-bottom: 8px;">
+            <strong style="opacity: 0.7;" data-i18n="sidebar.vulnerabilities">Vulnerabilities:</strong> <span id="sidebarVulns" style="float: right; color: #ff4d4f; font-weight: bold; background: rgba(255, 77, 79, 0.1); padding: 2px 6px; border-radius: 4px;">0 Found</span>
+          </div>
         </div>
       </div>
-
-      <div class="brew-commands">
-        <div class="type-filter" id="typeFilter">
-          <div class="type-filter-label">Filter by Type</div>
-          <button class="type-toggle active" data-type="All">All Types</button>
-          <button class="type-toggle" data-type="cask">Casks</button>
-          <button class="type-toggle" data-type="formula">Formulas</button>
-        </div>
-        <h3>Brew Commands</h3>
-        <button class="brew-command-button" data-command="brew update">
-          <span class="prompt">$</span> brew update
-        </button>
-        <button class="brew-command-button" data-command="brew upgrade">
-          <span class="prompt">$</span> brew upgrade
-        </button>
-        <button class="brew-command-button" data-command="brew list">
-          <span class="prompt">$</span> brew list
-        </button>
-        <button class="brew-command-button" data-command="brew doctor">
-          <span class="prompt">$</span> brew doctor
-        </button>
-        <button class="brew-command-button" data-command="brew cleanup">
-          <span class="prompt">$</span> brew cleanup
-        </button>
+      <div class="sidebar-actions" id="sidebarActions">
       </div>
     </div>
 
     <!-- Terminal -->
     <div class="terminal-container" id="terminalContainer">
       <div class="terminal-header">
-        <span class="terminal-title">Terminal</span>
-        <button
-          class="terminal-toggle"
-          id="terminalToggle"
-          title="Toggle terminal (Cmd+J)"
-        >
-          <svg
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            id="terminalToggleIcon"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M19 9l-7 7-7-7"
-            ></path>
-          </svg>
-        </button>
+        <span class="terminal-title" data-i18n="terminal.title">Terminal Activity</span>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <select id="terminalHistorySelect" style="background: var(--bg-dark); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px; padding: 2px 6px; font-size: 12px; display: none;">
+            <option value="current" data-i18n="terminal.current_session">Current Session</option>
+          </select>
+          <button class="terminal-toggle" id="terminalToggle" title="Toggle terminal (Cmd+J)">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" id="terminalToggleIcon">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+        </div>
       </div>
       <div id="terminalOutput"></div>
     </div>
 
-    <!-- Footer -->
-    <div class="footer">
-      <p>
-        Press <span class="keyboard-shortcut">Cmd+J</span> to toggle terminal.
-        <span id="appCount">0</span> apps shown.
-        <span
-          id="logPath"
-          style="margin-left: 16px; font-size: 11px; opacity: 0.6"
-        ></span>
-        <span
-          id="versionInfo"
-          style="margin-left: 16px; font-size: 11px; opacity: 0.6"
-        ></span>
       </p>
+    </div>
+
+    <!-- Sudo Modal (for cask upgrades requiring admin rights) -->
+    <div id="sudoModal" class="sudo-modal hidden">
+      <div class="sudo-modal-content">
+        <h3 id="sudoModalTitle">Administrator privileges required</h3>
+        <p>This cask upgrade requires admin access. Choose how to proceed:</p>
+        <div class="sudo-modal-actions">
+          <button id="sudoEmbeddedBtn" class="sudo-modal-btn primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+            Enter password here
+          </button>
+          <button id="sudoExternalBtn" class="sudo-modal-btn secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+            Open in Terminal.app
+          </button>
+          <button id="sudoSkipBtn" class="sudo-modal-btn tertiary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            Skip this cask
+          </button>
+        </div>
+      </div>
     </div>
 
     <script src="./renderer.js"></script>

@@ -1,7 +1,12 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, shell } from 'electron';
 import * as path from 'path';
 import { setupIpcHandlers } from './ipcHandlers';
 import { logCommand } from '../utils/logger';
+import { initI18n, changeLanguage, t, getCurrentLanguage } from './i18n';
+
+if (process.argv.includes('--test-startup') || process.env.TEST_STARTUP === 'true') {
+  app.disableHardwareAcceleration();
+}
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -11,8 +16,9 @@ function createWindow(): void {
     height: 900,
     title: 'BrewMate',
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '../preload/preload.js'),
     },
   });
 
@@ -31,27 +37,24 @@ function createWindow(): void {
     mainWindow = null;
   });
 
-  // Register Cmd-J shortcut - setup immediately and also after load
-  const setupCmdJ = () => {
+  // Open external links in default browser instead of a new Electron window
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
+  // Register Cmd-J shortcut - setup after window loads
+  mainWindow.webContents.once('did-finish-load', () => {
+    console.log('[Main] Window loaded, setting up Cmd+J shortcut');
     mainWindow?.webContents.on('before-input-event', (event, input) => {
-      if (
-        input.key === 'j' &&
-        (input.meta || input.control) &&
-        input.type === 'keyDown'
-      ) {
+      if (input.key === 'j' && (input.meta || input.control) && input.type === 'keyDown') {
         event.preventDefault();
         console.log('[Main] Cmd+J pressed, toggling terminal');
         mainWindow?.webContents.send('toggle-terminal');
       }
     });
-  };
-
-  // Setup immediately
-  setupCmdJ();
-
-  // Also setup after window loads (backup)
-  mainWindow.webContents.once('did-finish-load', () => {
-    console.log('[Main] Window loaded, Cmd+J shortcut should be active');
   });
 }
 
@@ -67,6 +70,18 @@ function initializeApp(): void {
   console.log('[Main] Setting up IPC handlers...');
   setupIpcHandlers();
   console.log('[Main] IPC handlers set up');
+
+  // Initialize i18n
+  console.log('[Main] Initializing i18n...');
+  initI18n();
+  console.log('[Main] i18n initialized');
+
+  if (process.argv.includes('--test-startup') || process.env.TEST_STARTUP === 'true') {
+    console.log('[Main] Startup smoke test passed successfully. Exiting before UI init.');
+    app.exit(0);
+    process.exit(0); // Add process.exit to be absolutely sure
+    return;
+  }
 
   // Create window when ready
   app.whenReady().then(() => {

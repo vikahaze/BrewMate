@@ -1,10 +1,91 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
+
+const validSendChannels = [
+  'get-version-info',
+  'install-app',
+  'uninstall-app',
+  'execute-command',
+  'get-all-apps',
+  'get-installed-apps',
+  'get-terminal-prompt',
+  'get-log-path',
+  'get-outdated-apps',
+  'get-cache-size',
+  'upgrade-app',
+  'upgrade-all',
+  'get-brew-services',
+  'execute-service-action',
+  'renderer-outdated-list',
+  'pty-input',
+  'kill-pty',
+];
+
+const validReceiveChannels = [
+  'toggle-terminal',
+  'terminal-output',
+  'all-apps',
+  'all-apps-error',
+  'all-apps-updated',
+  'installed-apps',
+  'installed-apps-error',
+  'install-complete',
+  'uninstall-complete',
+  'loading-status',
+  'terminal-prompt-info',
+  'log-path',
+  'version-info',
+  'outdated-apps',
+  'cache-size',
+  'upgrade-complete',
+  'upgrade-all-complete',
+  'brew-services-list',
+  'service-action-complete',
+  'app-details',
+  'asset-path',
+  'trending-apps-result',
+  'vulnerabilities-result',
+  'pty-data',
+  'cask-sudo-required',
+  'pty-exit',
+  'brew-update-complete',
+];
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  executeCommand: (command: string) => {
-    return ipcRenderer.invoke('execute-command', command);
+  send: (channel: string, ...data: any[]) => {
+    if (validSendChannels.includes(channel)) {
+      ipcRenderer.send(channel, ...data);
+    }
   },
-  onToggleTerminal: (callback: () => void) => {
-    ipcRenderer.on('toggle-terminal', callback);
+  on: (channel: string, func: (...args: any[]) => void) => {
+    if (validReceiveChannels.includes(channel)) {
+      // Pass null for event to match existing signatures in renderer expecting (_event, data)
+      ipcRenderer.on(channel, (event: IpcRendererEvent, ...args: any[]) =>
+        func(null, ...args)
+      );
+    }
+  },
+  // i18n helpers
+  t: (key: string, options?: object) => {
+    return ipcRenderer.invoke('i18n-t', key, options);
+  },
+  changeLanguage: (lng: string) => {
+    ipcRenderer.send('i18n-change-language', lng);
+  },
+  getCurrentLanguage: () => {
+    return ipcRenderer.invoke('i18n-get-language');
+  },
+  getCategories: () => {
+    return ipcRenderer.invoke('get-categories');
+  },
+  // PTY upgrade helpers (interactive sudo support)
+  upgradeCaskPty: (cask: string) => {
+    return ipcRenderer.invoke('upgrade-cask-pty', cask);
+  },
+  openExternalTerminal: (cask: string) => {
+    return ipcRenderer.invoke('open-external-terminal', cask);
+  },
+  killPty: () => {
+    return ipcRenderer.invoke('kill-pty');
   },
 });
+

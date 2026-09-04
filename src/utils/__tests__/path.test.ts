@@ -26,6 +26,7 @@ describe('path utilities', () => {
       expect(paths).toContain('/opt/homebrew/sbin');
       expect(paths).toContain('/usr/local/sbin');
       expect(paths).toContain('/home/linuxbrew/.linuxbrew/bin');
+      expect(paths).toContain(`${process.env.HOME || ''}/.linuxbrew/bin`);
     });
 
     it('should prepend brew paths to existing PATH', () => {
@@ -41,6 +42,7 @@ describe('path utilities', () => {
       expect(paths[2]).toBe('/opt/homebrew/sbin');
       expect(paths[3]).toBe('/usr/local/sbin');
       expect(paths[4]).toBe('/home/linuxbrew/.linuxbrew/bin');
+      expect(paths[5]).toBe(`${process.env.HOME || ''}/.linuxbrew/bin`);
 
       // Original paths should still be present
       expect(paths).toContain('/usr/bin');
@@ -53,7 +55,7 @@ describe('path utilities', () => {
 
       const paths = env.PATH!.split(':');
       const brewPathCount = paths.filter(
-        (p) => p === '/opt/homebrew/bin' || p === '/usr/local/bin',
+        (p) => p === '/opt/homebrew/bin' || p === '/usr/local/bin'
       ).length;
 
       // Each brew path should appear only once
@@ -84,9 +86,7 @@ describe('path utilities', () => {
       expect(paths).toContain('/usr/local/sbin');
 
       // Should keep existing one (no duplicate)
-      const homebrewCount = paths.filter(
-        (p) => p === '/opt/homebrew/bin',
-      ).length;
+      const homebrewCount = paths.filter((p) => p === '/opt/homebrew/bin').length;
       expect(homebrewCount).toBe(1);
     });
 

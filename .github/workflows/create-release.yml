@@ -6,16 +6,16 @@ on:
       - main
     paths:
       - 'package.json'
+      - '.github/workflows/create-release.yml'
+      - 'build/**'
   release:
     types: [created]
 
 jobs:
   create-release:
     runs-on: macos-latest
-    env:
-      TOKEN_HOMEBREW_CASK: ${{ secrets.TOKEN_HOMEBREW_CASK }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Get Version
         id: get_version
@@ -34,17 +34,44 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          npm run electron:build
-          ls -la
+          npm run build:mac -- --universal
+          ls -la dist-app || true
+        working-directory: .
+
+      - name: Verify Startup (Smoke Test)
+        timeout-minutes: 2
+        env:
+          TEST_STARTUP: 'true'
+          ELECTRON_ENABLE_LOGGING: '1'
+        run: |
+          # Smoke-test the universal build that ships in the DMG/ZIP.
+          # Do NOT use `find | head -1`: it can pick a host-arch staging app
+          # (dist-app/mac) whose native addon was never rebuilt for Electron.
+          if [ -f "dist-app/mac-universal/BrewMate.app/Contents/Resources/app.asar" ]; then
+            ASAR_PATH="dist-app/mac-universal/BrewMate.app/Contents/Resources/app.asar"
+          else
+            ASAR_PATH=$(find dist-app -path "*mac-universal*" -name app.asar | head -n 1)
+          fi
+          if [ -z "$ASAR_PATH" ]; then
+            echo "Error: universal app.asar not found!"
+            echo "--- dist-app contents ---"
+            ls -la dist-app || true
+            find dist-app -name "app.asar" 2>/dev/null || true
+            exit 1
+          fi
+          echo "Found ASAR at: $ASAR_PATH"
+          echo "Launching application from ASAR..."
+          npx electron "$ASAR_PATH" --test-startup --no-sandbox
         working-directory: .
 
       - name: Upload Assets to Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: |
-            ./dist/BrewMate-${{ env.VERSION }}-universal-mac.zip
+            ./dist-app/BrewMate-${{ env.VERSION }}-universal.zip
+            ./dist-app/BrewMate-${{ env.VERSION }}-universal.dmg
           draft: false
           name: ${{ env.VERSION }}
           tag_name: ${{ env.VERSION }}
@@ -52,62 +79,112 @@ jobs:
 
       - name: Generate SHA256 Checksum
         run: |
-          shasum -a 256 ./dist/BrewMate-${{ env.VERSION }}-universal-mac.zip | awk '{print $1}' >> shasumver
+          shasum -a 256 ./dist-app/BrewMate-${{ env.VERSION }}-universal.dmg | awk '{print $1}' >> shasumver
           echo "SHA 256:" >> $GITHUB_STEP_SUMMARY
           cat shasumver >> $GITHUB_STEP_SUMMARY
 
-      - name: Checkout homebrew-cask repository
-        if: env.TOKEN_HOMEBREW_CASK != ''
-        uses: actions/checkout@v4
-        with:
-          repository: romankurnovskii/homebrew-awesome-brew
-          path: homebrew-cask
-          token: ${{ secrets.TOKEN_HOMEBREW_CASK }} 
-          # https://github.com/settings/tokens/
-          # https://github.com/romankurnovskii/BrewMate/settings/secrets/actions
+      # ═══════════════════════════════════════════════════════════════
+      # NOTE: Cask is now maintained in-repo at Casks/brewmate.rb.
+      # The old flow checked out romankurnovskii/homebrew-awesome-brew,
+      # updated the cask there, and opened a PR. That logic has been
+      # replaced with a local cask update and direct push below.
+      # ═══════════════════════════════════════════════════════════════
+      # - name: Checkout homebrew-cask repository
+      #   uses: actions/checkout@v7
+      #   with:
+      #     repository: romankurnovskii/homebrew-awesome-brew
+      #     path: homebrew-cask
+      #     token: ${{ secrets.TOKEN_HOMEBREW_CASK }}
+      #
+      # - name: Update Cask | Create Pull Request
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #     TOKEN_HOMEBREW_CASK: ${{ secrets.TOKEN_HOMEBREW_CASK }}
+      #   run: |
+      #     VERSION=$(jq -r .version package.json)
+      #     BRANCH_NAME=update-version-${VERSION}
+      #     SHA256=$(shasum -a 256 ./dist-app/BrewMate-${VERSION}-universal.zip | awk '{print $1}')
+      #     git -C homebrew-cask config user.name "R K"
+      #     git -C homebrew-cask config user.email "email@example.com"
+      #     git -C homebrew-cask checkout -b ${BRANCH_NAME}
+      #     sed -i '' "s/version .*/version '${VERSION}'/" homebrew-cask/Casks/brewmate.rb
+      #     sed -i '' "s/sha256 .*/sha256 '${SHA256}'/" homebrew-cask/Casks/brewmate.rb
+      #     git -C homebrew-cask add .
+      #     git -C homebrew-cask commit -m "update to version ${VERSION}"
+      #     REPO_URL=$(git -C homebrew-cask remote get-url origin)
+      #     REPO_URL_WITH_TOKEN=$(echo "${REPO_URL}" | sed "s://://${TOKEN_HOMEBREW_CASK}@:")
+      #     git -C homebrew-cask remote set-url origin "${REPO_URL_WITH_TOKEN}"
+      #     git -C homebrew-cask push origin --delete ${BRANCH_NAME} || true
+      #     git -C homebrew-cask push origin ${BRANCH_NAME}
+      #     PR_URL="https://api.github.com/repos/romankurnovskii/homebrew-awesome-brew/pulls"
+      #     curl --request POST \
+      #     --url $PR_URL \
+      #     --header "authorization: token ${TOKEN_HOMEBREW_CASK}" \
+      #     --header 'content-type: application/json' \
+      #     --data @- << EOF
+      #     {
+      #       "title": "Update BrewMate to ${VERSION}",
+      #       "body": " **${GITHUB_WORKFLOW}**. \n\n commit: _${GITHUB_SHA}_.",
+      #       "head": "${BRANCH_NAME}", 
+      #       "base": "main"
+      #     }
+      #     EOF
 
-      - name: Update Cask | Create Pull Request
-        if: env.TOKEN_HOMEBREW_CASK != ''
+      - name: Update Cask (in-repo)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TOKEN_HOMEBREW_CASK: ${{ secrets.TOKEN_HOMEBREW_CASK }}
         run: |
           VERSION=$(jq -r .version package.json)
-          BRANCH_NAME=update-version-${VERSION}
-          SHA256=$(shasum -a 256 ./dist/BrewMate-${VERSION}-universal-mac.zip | awk '{print $1}')
+          SHA256=$(shasum -a 256 ./dist-app/BrewMate-${VERSION}-universal.dmg | awk '{print $1}')
 
-          git -C homebrew-cask config user.name "R K"
-          git -C homebrew-cask config user.email "email@example.com"
-          git -C homebrew-cask checkout -b ${BRANCH_NAME}
+          # Switch to main so we can push the cask update back
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
 
-          # Set new version
-          sed -i '' "s/version .*/version '${VERSION}'/" homebrew-cask/Casks/brewmate.rb
-          sed -i '' "s/sha256 .*/sha256 '${SHA256}'/" homebrew-cask/Casks/brewmate.rb
-    
-          git -C homebrew-cask add .
-          git -C homebrew-cask commit -m "update to version ${VERSION}"
+          # Update version and sha256 in Casks/brewmate.rb
+          sed -i '' "s/version .*/version '${VERSION}'/" Casks/brewmate.rb
+          sed -i '' "s/sha256 .*/sha256 '${SHA256}'/" Casks/brewmate.rb
 
-          REPO_URL=$(git -C homebrew-cask remote get-url origin)
-          REPO_URL_WITH_TOKEN=$(echo "${REPO_URL}" | sed "s://://${TOKEN_HOMEBREW_CASK}@:")
-          git -C homebrew-cask remote set-url origin "${REPO_URL_WITH_TOKEN}"
+          # Commit and push with [skip ci] to avoid loop
+          git config user.name "R K"
+          git config user.email "email@example.com"
+          git add Casks/brewmate.rb
+          # Only commit if the cask actually changed (safe to re-run)
+          git diff --cached --quiet || git commit -m "chore: update cask to version ${VERSION} [skip ci]"
+          git push origin main || true
 
-          # Delete the remote branch if it exists
-          git -C homebrew-cask push origin --delete ${BRANCH_NAME} || true
+  build-linux:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
 
-          # Push the branch
-          git -C homebrew-cask push origin ${BRANCH_NAME}
+      - name: Get Version
+        id: get_version
+        run: echo "VERSION=$(jq -r .version package.json)" >> $GITHUB_ENV
 
-          # Create PR
-          PR_URL="https://api.github.com/repos/romankurnovskii/homebrew-awesome-brew/pulls"
-          curl --request POST \
-          --url $PR_URL \
-          --header "authorization: token ${TOKEN_HOMEBREW_CASK}" \
-          --header 'content-type: application/json' \
-          --data @- << EOO
-          {
-            "title": "Update BrewMate to ${VERSION}",
-            "body": " **${GITHUB_WORKFLOW}**. \n\n commit: _${GITHUB_SHA}_.",
-            "head": "${BRANCH_NAME}", 
-            "base": "main"
-          }
-          EOO
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libnotify-dev libnss3 libxss1 libasound2t64
+          npm install
+        working-directory: .
+
+      - name: Build Linux App
+        # Do NOT pass GITHUB_TOKEN here: it makes electron-builder try to
+        # auto-publish, which fails when the release already exists (the
+        # create-release job creates it, and the upload step below attaches
+        # assets via softprops/action-gh-release).
+        run: npm run build:linux
+        working-directory: .
+
+      - name: Upload Assets to Release
+        uses: softprops/action-gh-release@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: |
+            ./dist-app/*.AppImage
+            ./dist-app/*.deb
+          tag_name: ${{ env.VERSION }}
