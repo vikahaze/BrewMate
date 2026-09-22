@@ -6,6 +6,8 @@ BrewMate is a GUI application for [Homebrew](https://brew.sh/) on **macOS** and 
 
 Includes third party apps + from [awesome-brew](https://github.com/romankurnovskii/homebrew-awesome-brew/)
 
+> **Note:** Homebrew now ships its own official GUI — [BrewUI](https://github.com/Homebrew/BrewUI) — introduced with [Homebrew 7.0.0](https://brew.sh/2026/09/13/homebrew-7.0.0/) on **13 September 2026**. Install it with `brew install --cask homebrew-app` (macOS Tahoe 26+).
+
 ![BrewMate Screenshot 1](assets/mainwindow.png)
 
 ## Features
